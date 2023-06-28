@@ -1210,17 +1210,18 @@ of elements that compare equal.
 struct StableCheckSorted{T<:Algorithm} <: Algorithm
     next::T
 end
-@inline function _sort!(v::AbstractVector, a::StableCheckSorted, o::Ordering, kw)
+@inline function _sort!(v::AbstractVector, rest, a::StableCheckSorted, o::Ordering, kw)
     @getkw lo hi scratch
     if _issorted(v, lo, hi, o)
         return scratch
     elseif _issorted(v, lo, hi, Lt((x, y) -> !lt(o, x, y)))
         # Reverse only if necessary. Using issorted(..., Reverse(o)) would violate stability.
         reverse!(v, lo, hi)
+        reverse_rest!(rest, lo, hi)
         return scratch
     end
 
-    _sort!(v, a.next, o, kw)
+    _sort!(v, rest, a.next, o, kw)
 end
 
 
