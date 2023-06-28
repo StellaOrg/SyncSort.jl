@@ -679,7 +679,7 @@ after_zero(::ReverseOrdering, x) = signbit(x)
 is_concrete_IEEEFloat(T::Type) = T <: Base.IEEEFloat && isconcretetype(T)
 @inline function _sort!(v::AbstractVector, rest, a::IEEEFloatOptimization, o::Ordering, kw)
     @getkw lo hi
-    #println("In I3e optimizations")
+
     if is_concrete_IEEEFloat(eltype(v)) && o isa DirectOrdering
         lo, hi = send_to_end!(isnan, v, rest, o, true; lo, hi)
         iv = reinterpret(uinttype(eltype(v)), v)
@@ -1024,10 +1024,11 @@ struct RadixSort <: Algorithm end
     #println(size(tu))
     #println(typeof((u, lo, hi, bits, tu, 1-lo, rest)))
     if radix_sort!(u, lo, hi, bits, tu, 1-lo, rest, rest_scratch)
-        uint_unmap!(v, u, lo, hi, o, umn)
+        uint_unmap!(v, u, (), (), lo, hi, o, umn)
     else
-        uint_unmap!(v, tu, lo, hi, o, umn, 1-lo)
+        uint_unmap!(v, tu, rest, rest_scratch, lo, hi, o, umn, 1-lo)
     end
+
     scratch
 end
 
@@ -1121,6 +1122,7 @@ end
 @inline function _sort!(v::AbstractVector, rest, a::ScratchQuickSort, o::Ordering, kw;
                 t=nothing, offset=nothing, swap=false, rev=false, rest_scratch = nothing)
     @getkw lo hi scratch
+
     if t === nothing
         scratch, t = make_scratch(scratch, eltype(v), hi-lo+1)
         offset = 1-lo
@@ -1171,17 +1173,15 @@ end
         elseif j-lo < hi-j
             # Sort the lower part recursively because it is smaller. Recursing on the
             # smaller part guarantees O(log(n)) stack space even on pathological inputs.
-            _sort!(v, rest, a, o, (;kw..., lo, hi=j-1); t, offset, swap, rev, rest_scratch = rest_scratch)
+            _sort!(v, rest, a, o, (;kw..., lo, hi=j-1); t, offset, swap, rev, rest_scratch)
             lo = j+1
             rev = !rev
         else # Sort the higher part recursively
-            _sort!(v, rest, a, o, (;kw..., lo=j+1, hi); t, offset, swap, rev=!rev,  rest_scratch = rest_scratch)
+            _sort!(v, rest, a, o, (;kw..., lo=j+1, hi); t, offset, swap, rev=!rev, rest_scratch)
             hi = j-1
         end
     end
     hi < lo && return scratch
-    swap && copyto!(v, lo, t, lo+offset, hi-lo+1)
-    rev && reverse!(v, lo, hi)
 
     if swap
         copyto!(v, lo, t, lo + offset, hi-lo+1)
@@ -1270,10 +1270,11 @@ function radix_sort_pass!(t, lo, hi, offset, counts, v, shift, chunk_size, rest_
             j = counts[i]             # lookup the target index
             t[j] = x                  # put the element where it belongs
             for irest in eachindex(rest)
-               #println("Type of ID $j, $k")
-                t_ = rest_ts[irest]
-                v_ = rest[irest]
-                t_[j] = v_[k]
+                #println("Type of ID $j, $k")
+                rest_ts[irest][j] = rest[irest][k]
+                # t_ = rest_ts[irest]
+                # v_ = rest[irest]
+                # t_[j] = v_[k]
             end
             counts[i] = j + 1         # increment the target index for the next
         end                           #  ↳ element in this bucket
@@ -2031,11 +2032,15 @@ function uint_map!(v::AbstractVector, lo::Integer, hi::Integer, order::Ordering)
     u
 end
 
-function uint_unmap!(v::AbstractVector, u::AbstractVector{U}, lo::Integer, hi::Integer,
+function uint_unmap!(v::AbstractVector, u::AbstractVector{U}, rest_v, rest_u,
+                     lo::Integer, hi::Integer,
                      order::Ordering, offset::U=zero(U),
                      index_offset::Integer=0) where U <: Unsigned
     @inbounds for i in lo:hi
         v[i] = uint_unmap(eltype(v), u[i+index_offset]+offset, order)
+        for irest in eachindex(rest_v)
+            rest_v[irest][i] = rest_u[irest][i + index_offset]
+        end
     end
     v
 end

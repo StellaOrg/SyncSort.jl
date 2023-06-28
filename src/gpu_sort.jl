@@ -7,7 +7,8 @@
 
 
 module SyncSort
-using Metal
+
+
 using Base.Order
 using Base: copymutable, midpoint, require_one_based_indexing, uinttype,
     sub_with_overflow, add_with_overflow, OneTo, BitSigned, BitIntegerType,
@@ -22,7 +23,6 @@ import Base:
     midpoint
 
 using KernelAbstractions
-using LoopVectorization
 using KernelAbstractions.Extras.LoopInfo: @unroll
 
 

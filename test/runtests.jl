@@ -1,15 +1,45 @@
 using SyncSort
 using Test
+using Random
 
-@testset "SyncSort.jl" begin
-    # Write your tests here.
-    x_float = rand(100)
-    x_int = rand(Int, 100)
+@testset "CPU single vectors" begin
+    x = rand(100)
+    syncsort!(x)
+    @test issorted(x)
 
-    syncsort!(x_float)
-    syncsort!(x_int)
+    x = rand(Int, 100)
+    syncsort!(x)
+    @test issorted(x)
+   
+    x = rand(UInt, 100)
+    syncsort!(x)
+    @test issorted(x)
+end
 
-    @test issorted(x_int)
-    @test issorted(x_float)
-    
+
+@testset "CPU double vectors" begin
+    Random.seed!(0)
+    x1 = rand(1000)
+    y1 = rand(1000)
+    x2 = copy(x1)
+    y2 = copy(y1)
+    syncsort!(x1, y1)
+    @test issorted(x1)
+    @test y1 == y2[sortperm(x2)]
+
+    x1 = rand(Int, 100)
+    x2 = copy(x1)
+    y1 = rand(100)
+    y2 = copy(y1)
+    syncsort!(x1, y1)
+    @test issorted(x1)
+    @test y1 == y2[sortperm(x2)]
+
+    x1 = rand(UInt, 100)
+    x2 = copy(x1)
+    y1 = rand(100)
+    y2 = copy(y1)
+    syncsort!(x1, y1)
+    @test issorted(x1)
+    @test y1 == y2[sortperm(x2)]
 end
